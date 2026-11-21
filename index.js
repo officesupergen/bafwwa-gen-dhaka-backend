@@ -42,6 +42,17 @@ app.get("/tutions", async (req, res) => {
   const result = await cursor.toArray();
   res.json(result);
 });
+
+// Count tuitions — no filter = every listing, `?tutorEmail=` = one tutor's posts
+app.get("/tutions/count", async (req, res) => {
+  const params = {};
+  if (req.query.tutorEmail) {
+    params.tutorEmail = String(req.query.tutorEmail);
+  }
+  const count = await tutionsCollection.countDocuments(params);
+  res.json({ count });
+});
+
 app.post("/tutions", async (req, res) => {
   const tutionData = req.body;
   const result = await tutionsCollection.insertOne(tutionData);
@@ -107,26 +118,46 @@ app.get("/applications", async (req, res) => {
 // with status "pending". The tuition document is the source of truth for the
 // denormalised fields, and one application per student/tuition is enforced.
 app.post("/applications", async (req, res) => {
-  const { tuitionId, studentName, studentEmail, studentPhone, preferredSchedule, studentNote } = req.body;
+  const {
+    tuitionId,
+    studentName,
+    studentEmail,
+    studentPhone,
+    preferredSchedule,
+    studentNote,
+  } = req.body;
   if (!tuitionId || !studentEmail) {
-    return res.status(400).json({ error: "tuitionId and studentEmail are required" });
+    return res
+      .status(400)
+      .json({ error: "tuitionId and studentEmail are required" });
   }
   if (!ObjectId.isValid(tuitionId)) {
     return res.status(400).json({ error: "Invalid tution id" });
   }
-  const tuition = await tutionsCollection.findOne({ _id: new ObjectId(tuitionId) });
+  const tuition = await tutionsCollection.findOne({
+    _id: new ObjectId(tuitionId),
+  });
   if (!tuition) {
     return res.status(404).json({ error: "Tution not found" });
   }
   if (tuition.approvalStatus !== "approved") {
-    return res.status(400).json({ error: "This tuition is not open for applications." });
+    return res
+      .status(400)
+      .json({ error: "This tuition is not open for applications." });
   }
   if (tuition.isActive === false) {
-    return res.status(400).json({ error: "This tuition is closed for applications." });
+    return res
+      .status(400)
+      .json({ error: "This tuition is closed for applications." });
   }
-  const existing = await applicationsCollection.findOne({ tuitionId, studentEmail });
+  const existing = await applicationsCollection.findOne({
+    tuitionId,
+    studentEmail,
+  });
   if (existing) {
-    return res.status(409).json({ error: "You have already applied for this tuition." });
+    return res
+      .status(409)
+      .json({ error: "You have already applied for this tuition." });
   }
   const application = {
     tuitionId,
@@ -155,12 +186,14 @@ app.patch("/applications/:id", async (req, res) => {
   const { _id, tuitionId, appliedAt, ...updates } = req.body;
   const result = await applicationsCollection.updateOne(
     { _id: new ObjectId(id) },
-    { $set: updates }
+    { $set: updates },
   );
   if (!result.matchedCount) {
     return res.status(404).json({ error: "Application not found" });
   }
-  const application = await applicationsCollection.findOne({ _id: new ObjectId(id) });
+  const application = await applicationsCollection.findOne({
+    _id: new ObjectId(id),
+  });
   res.json(application);
 });
 
@@ -170,7 +203,9 @@ app.delete("/applications/:id", async (req, res) => {
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid application id" });
   }
-  const result = await applicationsCollection.deleteOne({ _id: new ObjectId(id) });
+  const result = await applicationsCollection.deleteOne({
+    _id: new ObjectId(id),
+  });
   if (!result.deletedCount) {
     return res.status(404).json({ error: "Application not found" });
   }
